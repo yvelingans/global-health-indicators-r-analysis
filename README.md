@@ -83,6 +83,12 @@ The workflow includes:
 - World map visualization
 - Reproducible reporting with R Markdown
 
+## Report
+
+The full rendered HTML report is available here:
+
+- [Global Health Indicators Analysis Report](global_health_indicators_analysis.html)
+
 ## Notes
 
 The prepared `.RData` file is not included in the repository. Users can reproduce the datasets by running the script:
