@@ -1,0 +1,7 @@
+.Rhistory
+.RData
+.Rproj.user/
+.DS_Store
+*.html
+*.pdf
+Health_WDI_Global_Health_Indicators.RData
