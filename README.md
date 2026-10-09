@@ -85,10 +85,9 @@ The workflow includes:
 
 ## Report
 
-The full rendered HTML report is available here:
+The rendered HTML report can be viewed here:
 
-- [Global Health Indicators Analysis Report](global_health_indicators_analysis.html)
-
+[View the Global Health Indicators Analysis Report](https://yvelingans.github.io/global-health-indicators-r-analysis/global_health_indicators_analysis.html)
 ## Notes
 
 The prepared `.RData` file is not included in the repository. Users can reproduce the datasets by running the script:
