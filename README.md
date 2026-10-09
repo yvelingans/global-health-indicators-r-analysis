@@ -44,3 +44,51 @@ global-health-indicators-r-analysis/
 ├── 01_download_wdi_health_data.R
 ├── global_health_indicators_analysis.Rmd
 └── .gitignore
+
+
+## Methods
+
+The workflow includes:
+
+- Downloading WDI health indicators from 2000 to 2021
+- Adding country metadata such as region and income group
+- Removing aggregate regions
+- Preparing a time-series dataset
+- Preparing a 2021 cross-sectional dataset
+- Handling missing data
+- Visualizing distributions, associations, regional differences, and trends
+- Creating world maps of selected health indicators
+
+## Technologies
+
+- R
+- WDI
+- dplyr
+- tidyr
+- ggplot2
+- scales
+- GGally
+- ggpubr
+- R Markdown
+
+## Key Skills Demonstrated
+
+- Public health data analysis
+- Global health indicator analysis
+- Data extraction from an API
+- Data cleaning and preparation
+- Exploratory data analysis
+- Data visualization with ggplot2
+- Time-series visualization
+- World map visualization
+- Reproducible reporting with R Markdown
+
+## Notes
+
+The prepared `.RData` file is not included in the repository. Users can reproduce the datasets by running the script:
+
+```r
+source("01_download_wdi_health_data.R")
+
+Author
+Yvelin Gansou
