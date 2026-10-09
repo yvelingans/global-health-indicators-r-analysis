@@ -1,0 +1,574 @@
+---
+title: | 
+  | Global Health Indicators Analysis with R
+author: Yvelin Gansou
+output: 
+  html_notebook: 
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+---
+
+
+# Visualisation de données
+
+## Chargement des packages , importation 
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(scales)
+library(GGally)
+library(ggpubr)
+```
+
+
+## Structure des données, recodage en facteurs
+
+```{r}
+load("health_data_tp.RData")
+str(health_2021)
+str(health_ts)
+
+#summary(health_2021)
+
+health_2021 <- health_2021 %>%
+  mutate(
+    region = factor(region),
+    income = factor(income, levels = c("Low income","Lower middle income","Upper middle income","High income","Not classified"))
+  )
+
+health_ts <- health_ts %>%
+  mutate(
+    region = factor(region),
+    income = factor(income, levels = c("Low income","Lower middle income","Upper middle income","High income","Not classified"))
+  )
+```
+
+```{r}
+summary(health_2021)
+```
+La distribution des dépenses de santé par habitant est fortement asymétrique à droite, avec quelques pays présentant des niveaux extrêmement élevés comparativement au reste du monde.  Une transformation logarithmique serait justifiée.
+
+## Exploration de la distribution de la dépense par santé
+
+### Histogramme en échelle brute
+
+```{r, fig.width=5, fig.height=2.5}
+p0_raw <- ggplot(health_2021, aes(x = health_exp_pc)) +
+  geom_histogram(bins = 30, fill = "#2C7FB8", color = "white") +
+  labs(title = "Distribution des dépenses de santé par habitant (échelle brute)",
+       x = "Health expenditure per capita (USD)",
+       y = "Nombre de pays") +
+  theme_minimal()
+
+p0_raw
+```
+
+
+
+---
+
+### Étape 2 — Histogramme en échelle log10
+
+```{r, fig.width=5, fig.height=4}
+p0_log <- ggplot(health_2021, aes(x = log10(health_exp_pc))) +
+  geom_histogram(bins = 30, fill = "#1B9E77", color = "white") +
+  labs(title = "Distribution des dépenses de santé par habitant (log10)",
+       x = "log10(Health expenditure per capita)",
+       y = "Nombre de pays") +
+  theme_minimal()
+
+p0_log
+```
+
+# 1) Figures (2021) : distributions, comparaisons, associations
+
+# Histogramme : distribution de l’espérance de vie (2021)
+
+```{r,fig.width=5,fig.height=3}
+p1 <- ggplot(health_2021, aes(x = life_exp)) +
+  geom_histogram(bins = 25,
+                 fill = "#2C7FB8",   # bleu doux
+                 color = "white",
+                 alpha = 0.9) +
+  labs(title = "(1) Distribution de l’espérance de vie (2021)",
+       x = "Life expectancy (years)",
+       y = "Number of countries") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),  # titre plus petit
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  )
+
+p1
+```
+### Top pays
+```{r, fig.width=7, fig.height=3}
+top10 <- health_2021 %>%
+  arrange(desc(life_exp)) %>%
+  slice(1:10) %>%
+  mutate(country = reorder(country, life_exp))
+
+p_top10 <- ggplot(top10, aes(x = country, y = life_exp)) +
+  geom_col(fill = "#2C7FB8") +
+  coord_flip() +
+  labs(title = " Top 10 pays —  (2021)",
+       x = "", y = "Life expectancy (years)") +
+  theme_minimal()
+bottom10 <- health_2021 %>%
+  arrange(life_exp) %>%
+  slice(1:10) %>%
+  mutate(country = reorder(country, life_exp))
+
+p_bottom10 <- ggplot(bottom10, aes(x = country, y = life_exp)) +
+  geom_col(fill = "#D95F02") +
+  coord_flip() +
+  labs(title = " Bottom 10 pays — (2021)",
+       x = "", y = "Life expectancy (years)") +
+  theme_minimal()
+ggarrange(p_bottom10, p_top10, ncol = 2)
+```
+
+
+## ( Boxplots : LifeExp par région (2021)
+
+```{r,fig.width=5,fig.height=3}
+p2 <- ggplot(health_2021, aes(x = region, y = life_exp, fill = region)) +
+  geom_boxplot(alpha = 0.8, outlier.color = "black") +
+  coord_flip() +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "(2) Espérance de vie par région (2021)",
+       x = "",
+       y = "Life expectancy (years)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 8),
+    legend.position = "none"
+  )
+
+p2
+```
+
+
+##  Boxplots : LifeExp par groupe de revenu (2021)
+```{r,fig.width=5,fig.height=3}
+p3 <- ggplot(health_2021, aes(x = income, y = life_exp, fill = income)) +
+  geom_boxplot(alpha = 0.85, outlier.color = "black") +
+  coord_flip() +
+  scale_fill_brewer(palette = "YlGnBu") +
+  labs(title = "(3) Espérance de vie par groupe de revenu (2021)",
+       x = "",
+       y = "Life expectancy (years)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    legend.position = "none"
+  )
+
+p3
+```
+
+
+
+
+
+##  Nuage : LifeExp vs mortalité infantile + LOESS + régression (rouge)
+```{r,fig.width=5,fig.height=3}
+p5 <- ggplot(health_2021, aes(x = infant_mortality, y = life_exp)) +
+  geom_point(alpha=.6) +
+  geom_smooth(formula = y ~ x, se = FALSE) +
+  geom_smooth(formula = y ~ x, se = FALSE, method = "lm", color = "red") +
+  labs(title="(5) Life expectancy vs mortalité infantile (2021)",
+       x="Infant mortality (per 1,000 births)", y="Life expectancy (years)") +
+  theme_minimal()
+p5
+```
+
+##  Même nuage, couleur = région
+
+```{r,fig.width=5,fig.height=5}
+p6 <- ggplot(health_2021,
+             aes(x = infant_mortality,
+                 y = life_exp,
+                 color = region)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "(6) Espérance de vie vs mortalité infantile (2021)",
+       x = "Infant mortality (per 1,000 births)",
+       y = "Life expectancy (years)",
+       color = "Region") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+p6
+```
+
+##  Même nuage, couleur = revenu
+```{r,fig.width=5,fig.height=5}
+p7 <- ggplot(health_2021,
+             aes(x = infant_mortality,
+                 y = life_exp,
+                 color = income)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "(7) Espérance de vie vs mortalité infantile (2021)",
+       x = "Infant mortality (per 1,000 births)",
+       y = "Life expectancy (years)",
+       color = "Region") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+p7
+```
+
+## 8 LifeExp vs dépenses santé/hab (échelle log10) + LOESS + régression rouge
+
+### 8a Sans échelle logarithmique 
+```{r,fig.width=5,fig.height=3}
+p8a <- ggplot(health_2021,
+              aes(x = health_exp_pc,
+                  y = life_exp)) +
+  geom_point(alpha = 0.6, color = "#2C7FB8") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "(8a) Espérance de vie vs dépenses de santé (échelle naturelle)",
+       x = "Health expenditure per capita (USD)",
+       y = "Life expectancy (years)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 10, face = "bold"))
+
+p8a
+```
+
+### 8b Avec échelle logarithmique 
+```{r,fig.width=4,fig.height=3}
+p8b <- ggplot(health_2021,
+              aes(x = health_exp_pc,
+                  y = life_exp)) +
+  geom_point(alpha = 0.6, color = "#2C7FB8") +
+  scale_x_log10(labels = scales::comma) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "(8b) Espérance de vie vs dépenses de santé (échelle log10)",
+       x = "Health expenditure per capita (USD, log10 scale)",
+       y = "Life expectancy (years)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 10, face = "bold"))
+
+p8b
+```
+
+ 
+
+## 9) LifeExp vs vaccination DTP + LOESS + régression rouge
+
+```{r,fig.width=5,fig.height=3.5}
+p9 <- ggplot(health_2021, aes(x = vaccination_dtp, y = life_exp)) +
+  geom_point(alpha=.6) +
+  geom_smooth(formula = y ~ x, se = FALSE) +
+  geom_smooth(formula = y ~ x, se = FALSE, method = "lm", color = "red") +
+  labs(title="(9) LifeExp vs vaccination DTP (2021)",
+       x="DTP immunization (% of children)", y="Life expectancy (years)") +
+  theme_minimal()
+p9
+```
+
+
+## (10) LifeExp vs accès eau potable de base + LOESS + régression rouge
+```{r,fig.width=5,fig.height=4}
+p10 <- ggplot(health_2021, aes(x = water_basic, y = life_exp)) +
+  geom_point(alpha=.6) +
+  geom_smooth(formula = y ~ x, se = FALSE) +
+  geom_smooth(formula = y ~ x, se = FALSE, method = "lm", color = "red") +
+  labs(title="(10) LifeExp vs accès à l’eau potable de base (2021)",
+       x="Basic drinking water services (%)", y="Life expectancy (years)") +
+  theme_minimal()
+p10
+```
+
+
+## Facettes
+
+### LifeExp vs dépenses santé — facettes par revenu
+
+```{r}
+p11a <- ggplot(health_2021,
+                   aes(x = health_exp_pc, y = life_exp)) +
+  geom_point(alpha = 0.6, color = "#2C7FB8") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  scale_x_log10(labels = scales::comma) +
+  facet_wrap(~ income) +
+  labs(title = "Espérance de vie vs dépenses de santé (2021) — par groupe de revenu",
+       x = "Health expenditure per capita (USD, log scale)",
+       y = "Life expectancy (years)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"),
+        strip.text = element_text(size = 10))
+
+p11a
+```
+
+
+### LifeExp vs dépenses santé — facettes par région
+
+```{r}
+p11b <- ggplot(health_2021,
+                   aes(x = health_exp_pc, y = life_exp)) +
+  geom_point(alpha = 0.6, color = "#2C7FB8") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  scale_x_log10(labels = scales::comma) +
+  facet_wrap(~ region) +
+  labs(title = "Espérance de vie vs dépenses de santé (2021) — par région",
+       x = "Health expenditure per capita (USD, log scale)",
+       y = "Life expectancy (years)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold"),
+        strip.text = element_text(size = 9))
+
+p11b
+```
+
+
+### LifeExp vs dépenses santé — facettes selon  région et revenu
+```{r, fig.width=10, fig.height=8}
+p11c <- ggplot(health_2021,
+                    aes(x = health_exp_pc,
+                        y = life_exp)) +
+  geom_point(alpha = 0.6, color = "#2C7FB8") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  scale_x_log10(labels = scales::comma) +
+  facet_grid(region ~ income,
+           labeller = labeller(region = label_wrap_gen(width = 15))) +
+  labs(title = "Espérance de vie vs dépenses de santé (2021)",
+       x = "Health expenditure per capita (USD, log scale)",
+       y = "Life expectancy (years)") +
+  theme_minimal() +
+ theme(strip.text = element_text(size = 8))
+
+p11c
+```
+
+
+## (12) ggpairs (matrice) : relations entre variables continues (2021)
+```{r }
+
+p12 <- health_2021 %>%
+  mutate(log_health_exp = log10(health_exp_pc)) %>%
+  select(life_exp,
+         infant_mortality,
+         vaccination_dtp,
+         water_basic,
+         log_health_exp) %>%
+  ggpairs(progress = FALSE)
+
+p12
+```
+
+
+## Tendance temporelle
+```{r, fig.width=7, fig.height=4}
+regions_ref <- c("Latin America & Caribbean", "Europe & Central Asia", "Sub-Saharan Africa")
+
+ts_regions <- health_ts %>%
+  filter(region %in% regions_ref) %>%
+  group_by(region, year) %>%
+  summarise(life_exp = mean(life_exp, na.rm = TRUE), .groups = "drop") %>%
+  mutate(group = region)
+
+ts_countries <- health_ts %>%
+  filter(country %in% c("Canada", "United States")) %>%
+  mutate(group = country) %>%
+  select(year, life_exp, group)
+
+ts_plot <- bind_rows(ts_countries, ts_regions)
+
+p13 <- ggplot(ts_plot, aes(x = year, y = life_exp, color = group)) +
+  geom_line(linewidth = 1) +
+  labs(title = "Évolution de l’espérance de vie (2000–2021)",
+       subtitle = "Canada vs États-Unis et comparaison avec la moyenne de trois régions",
+       x = "Year", y = "Life expectancy (years)", color = "") +
+  theme_minimal()
+
+p13
+```
+
+
+
+
+# Géodonnées : Carte mondiale (2021) — exemple avec Life expectancy
+
+
+
+## Preparation geodonnees
+
+```{r}
+world_coordinates <- map_data("world")
+
+# On renomme region (nom du pays dans map_data) en country
+world_coordinates <- world_coordinates %>%
+  rename(country = region)
+
+# Jointure propre
+new_world_health <- world_coordinates %>%
+  left_join(health_2021, by = "country")
+```
+
+
+
+
+### Vérifier les pays non appariés (optionnel mais utile)
+
+
+```{r}
+countries_not_matched <- health_2021 %>%
+  filter(!(country %in% world_coordinates$country)) %>%
+  distinct(country)
+
+countries_not_matched
+country_names <- unique(world_coordinates$country)
+
+country_names[grep("Antigua", country_names)]
+country_names[grep("Brunei", country_names)]
+country_names[grep("Cape|Cabo|Verde", country_names)]
+country_names[grep("Congo", country_names)]
+country_names[grep("Ivory|Cote|Ivoire", country_names)]
+country_names[grep("Czech", country_names)]
+country_names[grep("Egypt", country_names)]
+country_names[grep("Swaz|Eswat", country_names)]
+country_names[grep("Gambia", country_names)]
+country_names[grep("Iran", country_names)]
+country_names[grep("Korea", country_names)]
+country_names[grep("Kyrgyz", country_names)]
+country_names[grep("Lao|Laos", country_names)]
+country_names[grep("Russia", country_names)]
+country_names[grep("Slov", country_names)]
+country_names[grep("Saint Lucia|St Lucia|Lucia", country_names)]
+country_names[grep("Syria", country_names)]
+country_names[grep("Trinidad|Tobago", country_names)]
+country_names[grep("Turkey|Turkiye", country_names)]
+country_names[grep("UK|United Kingdom|Britain", country_names)]
+country_names[grep("USA|United States", country_names)]
+country_names[grep("Vietnam|Viet", country_names)]
+country_names[grep("West Bank|Gaza", country_names)]
+country_names[grep("Yemen", country_names)]
+```
+
+---
+
+## 2) Correction des noms (à partir de ta liste)
+
+On crée une copie `health_2021_modified` uniquement pour la carte :
+
+
+```{r}
+
+
+# 1) Géodonnées
+world_coordinates <- map_data("world") %>%
+  rename(country = region)
+
+# 2) Vérifier pays non appariés
+countries_not_matched <- health_2021 %>%
+  filter(!(country %in% world_coordinates$country)) %>%
+  distinct(country)
+
+countries_not_matched
+
+# 3) Corriger les noms (copie dédiée)
+health_2021_modified <- health_2021
+
+health_2021_modified$country[health_2021_modified$country == "Antigua and Barbuda"] <- "Antigua"
+health_2021_modified$country[health_2021_modified$country == "Brunei Darussalam"] <- "Brunei"
+health_2021_modified$country[health_2021_modified$country == "Cabo Verde"] <- "Cape Verde"
+health_2021_modified$country[health_2021_modified$country == "Congo, Dem. Rep."] <- "Democratic Republic of the Congo"
+health_2021_modified$country[health_2021_modified$country == "Congo, Rep."] <- "Republic of Congo"
+health_2021_modified$country[health_2021_modified$country == "Cote d'Ivoire"] <- "Ivory Coast"
+health_2021_modified$country[health_2021_modified$country == "Czechia"] <- "Czech Republic"
+health_2021_modified$country[health_2021_modified$country == "Egypt, Arab Rep."] <- "Egypt"
+health_2021_modified$country[health_2021_modified$country == "Eswatini"] <- "Swaziland"
+health_2021_modified$country[health_2021_modified$country == "Gambia, The"] <- "Gambia"
+health_2021_modified$country[health_2021_modified$country == "Iran, Islamic Rep."] <- "Iran"
+health_2021_modified$country[health_2021_modified$country == "Korea, Rep."] <- "South Korea"
+health_2021_modified$country[health_2021_modified$country == "Kyrgyz Republic"] <- "Kyrgyzstan"
+health_2021_modified$country[health_2021_modified$country == "Lao PDR"] <- "Laos"
+health_2021_modified$country[health_2021_modified$country == "Russian Federation"] <- "Russia"
+health_2021_modified$country[health_2021_modified$country == "Slovak Republic"] <- "Slovakia"
+health_2021_modified$country[health_2021_modified$country == "Somalia, Fed. Rep."] <- "Somalia"
+health_2021_modified$country[health_2021_modified$country == "St. Lucia"] <- "Saint Lucia"
+health_2021_modified$country[health_2021_modified$country == "Syrian Arab Republic"] <- "Syria"
+health_2021_modified$country[health_2021_modified$country == "Turkiye"] <- "Turkey"
+health_2021_modified$country[health_2021_modified$country == "United Kingdom"] <- "UK"
+health_2021_modified$country[health_2021_modified$country == "United States"] <- "USA"
+health_2021_modified$country[health_2021_modified$country == "Viet Nam"] <- "Vietnam"
+health_2021_modified$country[health_2021_modified$country == "West Bank and Gaza"] <- "West Bank"
+health_2021_modified$country[health_2021_modified$country == "Yemen, Rep."] <- "Yemen"
+
+# Trinidad & Tobago : duplication
+tt <- health_2021_modified[health_2021_modified$country == "Trinidad and Tobago", ]
+health_2021_modified <- rbind(health_2021_modified, tt)
+tt_idx <- which(health_2021_modified$country == "Trinidad and Tobago")
+health_2021_modified$country[tt_idx] <- c("Trinidad", "Tobago")
+
+# 4) Re-vérification
+countries_not_matched2 <- health_2021_modified %>%
+  filter(!(country %in% world_coordinates$country)) %>%
+  distinct(country)
+
+countries_not_matched2
+
+# 5) Jointure finale (IMPORTANT)
+new_world_health <- world_coordinates %>%
+  left_join(health_2021_modified, by = "country")
+```
+
+
+
+
+
+
+
+## (Carte 1) Espérance de vie (2021)
+
+
+```{r, fig.width=10, fig.height=5}
+p_map_life <- ggplot(new_world_health, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = life_exp), color = "white", linewidth = 0.1) +
+  scale_fill_viridis_c(option = "C", na.value = "grey85") +
+  coord_quickmap() +
+  labs(title = "(16) Carte mondiale — Espérance de vie (2021)",
+       fill = "Life exp.") +
+  theme_minimal() +
+  theme(axis.title = element_blank(),
+        axis.text  = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(size = 12, face = "bold"))
+
+p_map_life
+```
+
+
+## (Carte 2) Dépenses de santé/habitant (2021) — valeur brute (recommandée)
+
+
+```{r, fig.width=10, fig.height=5}
+p_map_exp <- ggplot(new_world_health, aes(x = long, y = lat, group = group)) +
+  geom_polygon(aes(fill = health_exp_pc), color = "white", linewidth = 0.1) +
+  scale_fill_viridis_c(option = "D", na.value = "grey85", labels = comma) +
+  coord_quickmap() +
+  labs(title = "(17) Carte mondiale — Dépenses de santé par habitant (2021)",
+       fill = "USD") +
+  theme_minimal() +
+  theme(axis.title = element_blank(),
+        axis.text  = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(size = 12, face = "bold"))
+
+p_map_exp
+```
