@@ -89,6 +89,7 @@ The prepared `.RData` file is not included in the repository. Users can reproduc
 
 ```r
 source("01_download_wdi_health_data.R")
+```
 
 Author
 Yvelin Gansou
