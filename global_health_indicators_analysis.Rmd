@@ -1,12 +1,12 @@
 ---
-title: | 
-  | Global Health Indicators Analysis with R
-author: Yvelin Gansou
-output: 
-  html_notebook: 
-    toc: yes
-    toc_float: yes
+title: "Global Health Indicators Analysis with R"
+author: "Yvelin Gansou"
+output:
+  html_document:
+    toc: true
+    toc_float: true
     toc_depth: 3
+    theme: flatly
 ---
 
 
